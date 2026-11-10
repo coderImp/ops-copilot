@@ -16,6 +16,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import statistics
 import sys
 import tempfile
@@ -42,7 +43,15 @@ def load_scenarios(only: str | None = None) -> list[dict]:
 
 
 def evaluate_one(sc: dict) -> dict:
+    """每个场景用独立临时目录注入故障，跑完立即清理，避免在仓库留下残留目录。"""
     tmp = tempfile.mkdtemp(prefix="opscop-")
+    try:
+        return _evaluate(sc, tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _evaluate(sc: dict, tmp: str) -> dict:
     inject(sc["fault"], out_dir=tmp, minutes=15, seed=hash(sc["id"]) % 1000, clean=True)
     os.environ["OPS_DATA_DIR"] = tmp
 
@@ -67,7 +76,6 @@ def evaluate_one(sc: dict) -> dict:
 
     tool_calls = len(registry.call_log)
     tool_ok = sum(1 for c in registry.call_log if c.get("ok"))
-    tools_used = len(registry.call_log)
 
     return {
         "id": sc["id"], "difficulty": sc["difficulty"], "fault": sc["fault"],
