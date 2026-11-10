@@ -377,9 +377,12 @@ CREATE INDEX idx_m ON metrics(service, metric, ts);
 
 ---
 
-## 11. 里程碑与范围（本周 vs 下周）
+## 11. 里程碑与范围（v3：全量保留，11/11 – 11/20）
 
-### 本周必达（截止 2026-11-15）
+> 具体排期见 [ROADMAP_DAILY.md](ROADMAP_DAILY.md)。本节只定义范围边界：**原设计不做删减**，
+> 只顺延时间（11/15 → 11/20）。
+
+### 必做（D1–D10）
 
 | # | 事项 | 验收 |
 |---|---|---|
@@ -390,7 +393,7 @@ CREATE INDEX idx_m ON metrics(service, metric, ts);
 | 5 | 文档四件套 | README + 本文件 + ROADMAP + GIT_WORKFLOW |
 | 6 | Git 历史规范 | 每天 ≥3 次 conventional commit |
 
-### 下周加分（不阻塞投递）
+### 加分（同属 v3 范围，排在 D9–D10）
 
 并行 fan-out 多 Agent（补 Multi-Agent 考点）、Spring Boot 网关 + SSE + 限流、可观测（trace 落库）、120 条评测集、4 组对照实验。
 
