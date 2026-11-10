@@ -19,7 +19,7 @@
 | `agent/core/loop.py` | 手写 ReAct，三层终止（硬截断/重复检测/预算） | "怎么保证一定停" |
 | `agent/core/registry.py` | ToolSpec + schema 校验 + 超时 + 幂等重试 + 只读写分级 | "100 个工具怎么路由" |
 | `agent/core/context.py` | token 预算 + 滑动窗口 + 机械摘要 + 结构化记忆 | "上下文爆炸怎么办" |
-| `agent/tools/logs.py` | **错误签名归一化**（把 3 万行聚成 5 种） | "日志太多塞不下" |
+| `agent/tools/logs.py` | **错误签名归一化**（3 万行日志聚成几种签名，取 top3） | "日志太多塞不下" |
 | `agent/tools/metrics.py` | 基线/峰值/异常判定，基线为 0 用绝对阈值 | "怎么判断异常" |
 | `eval/run_eval.py` | 24 条场景、四层指标、拒答单独统计 | "评测怎么做" |
 

@@ -13,7 +13,7 @@ class ScriptedPlanner:
         self._d = list(decisions)
         self._i = 0
 
-    def decide(self, messages, tool_block):
+    def decide(self, messages, tool_block, specs=None):
         d = self._d[min(self._i, len(self._d) - 1)]
         self._i += 1
         return d

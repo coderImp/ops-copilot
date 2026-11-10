@@ -60,6 +60,9 @@ class ToolRegistry:
         self._fns: dict[str, Callable[..., Any]] = {}
         self._specs: dict[str, ToolSpec] = {}
         self.call_log: list[dict] = []
+        # 高危写操作的待确认队列：token -> (name, args)
+        self._pending: dict[str, tuple[str, dict]] = {}
+        self._confirm_seq = 0
 
     # ---------- 注册 ----------
     def register(self, spec: ToolSpec, fn: Callable[..., Any]) -> None:
@@ -129,10 +132,16 @@ class ToolRegistry:
             return ToolResult(ok=False, error=f"invalid_args: {e}")
 
         if not spec.read_only:
+            # 高危写操作：不直接执行，登记待确认，由人工调用 confirm() 放行
+            self._confirm_seq += 1
+            token = f"cfm-{self._confirm_seq:04d}"
+            self._pending[token] = (name, args)
+            self.call_log.append({"tool": name, "args": args, "ok": False,
+                                  "error": "needs_human_confirm", "token": token})
             return ToolResult(
                 ok=False,
-                error=f"needs_human_confirm: tool {name} is risk={spec.risk}, "
-                      f"call confirm_tool() first",
+                error=f"needs_human_confirm: {name} 是 risk={spec.risk} 的写操作，"
+                      f"已登记确认令牌 {token}；请人工调用 registry.confirm('{token}') 后才会执行",
             )
 
         attempts = max_attempts if spec.idempotent else 1
@@ -140,9 +149,10 @@ class ToolRegistry:
         for i in range(1, attempts + 1):
             started = time.time()
             try:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    fut = pool.submit(self._fns[name], **args)
-                    data = fut.result(timeout=spec.timeout_s)
+                # 注意：共享线程池 (见模块底部)。超时只会放弃等待，
+                # 不会杀死工作线程 —— 工具实现必须自己可中断（如给底层 IO 设超时）。
+                fut = _EXECUTOR.submit(self._fns[name], **args)
+                data = fut.result(timeout=spec.timeout_s)
                 elapsed = int((time.time() - started) * 1000)
                 truncated = isinstance(data, str) and len(data) > spec.max_result_chars
                 res = ToolResult(ok=True, data=data, truncated=truncated,
@@ -164,3 +174,30 @@ class ToolRegistry:
         self.call_log.append({"tool": name, "args": args, "ok": False,
                               "error": last.error, "attempts": last.attempts})
         return last
+
+    # ---------- 高危操作的二次确认 ----------
+    def pending_confirms(self) -> list[str]:
+        return list(self._pending)
+
+    def confirm(self, token: str) -> ToolResult:
+        """人工放行一个待确认的写操作。这是"AI 不能自己动生产"的落地开关。"""
+        item = self._pending.pop(token, None)
+        if item is None:
+            return ToolResult(ok=False, error=f"unknown_confirm_token: {token}")
+        name, args = item
+        spec = self._specs[name]
+        started = time.time()
+        try:
+            fut = _EXECUTOR.submit(self._fns[name], **args)
+            data = fut.result(timeout=spec.timeout_s)
+        except Exception as e:  # noqa: BLE001 - 对外统一成结构化错误
+            return ToolResult(ok=False, error=f"{type(e).__name__}: {e}")
+        elapsed = int((time.time() - started) * 1000)
+        self.call_log.append({"tool": name, "args": args, "ok": True,
+                              "elapsed_ms": elapsed, "confirmed": token})
+        return ToolResult(ok=True, data=data, elapsed_ms=elapsed)
+
+
+# 全局共享线程池：避免每次调用新建池导致线程泄漏（超时时工作线程无法被杀死）
+_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=8, thread_name_prefix="tool")

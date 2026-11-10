@@ -70,9 +70,35 @@ def test_tool_exception_is_structured():
 
 
 def test_write_tool_requires_confirm():
-    r = _reg().invoke("danger", {"service": "order-service"})
+    reg = _reg()
+    r = reg.invoke("danger", {"service": "order-service"})
     assert not r.ok
     assert "needs_human_confirm" in (r.error or "")
+    assert "cfm-0001" in (r.error or "")
+    # 登记了待确认令牌，但没有真的执行
+    assert reg.pending_confirms() == ["cfm-0001"]
+
+
+def test_write_tool_executes_after_confirm():
+    reg = _reg()
+    reg.invoke("danger", {"service": "order-service"})
+    r = reg.confirm("cfm-0001")
+    assert r.ok and r.data == "done"
+    assert reg.pending_confirms() == []
+
+
+def test_confirm_unknown_token():
+    r = _reg().confirm("cfm-9999")
+    assert not r.ok and "unknown_confirm_token" in (r.error or "")
+
+
+def test_write_tool_cannot_run_without_confirm_twice():
+    reg = _reg()
+    first = reg.invoke("danger", {"service": "a"})
+    second = reg.invoke("danger", {"service": "a"})
+    assert "cfm-0001" in (first.error or "")
+    assert "cfm-0002" in (second.error or "")
+    assert reg.pending_confirms() == ["cfm-0001", "cfm-0002"]
 
 
 def test_truncation_flag():

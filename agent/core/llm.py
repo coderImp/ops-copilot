@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -25,7 +26,8 @@ class Decision:
 
 
 class Planner(Protocol):
-    def decide(self, messages: list[dict], tool_block: str) -> Decision: ...
+    def decide(self, messages: list[dict], tool_block: str,
+               specs: list[Any] | None = None) -> Decision: ...
 
 
 # ---------------------------------------------------------------- Oracle
@@ -68,7 +70,8 @@ class OraclePlanner:
                 out[m.get("name", "?")] = {}
         return out
 
-    def decide(self, messages: list[dict], tool_block: str) -> Decision:
+    def decide(self, messages: list[dict], tool_block: str,
+               specs: list[Any] | None = None) -> Decision:
         task = next((m["content"] for m in messages if m["role"] == "user"), "")
         named = self._find_service(task)
         payloads = self._tool_payloads(messages)
@@ -118,10 +121,15 @@ class OraclePlanner:
         kb = payloads.get("search_kb", {})
         kb_titles = [h.get("title", "") for h in (kb.get("hits") or [])]
         top = anomalies[0] if anomalies else {}
-        ratio = top.get("peak_over_baseline")
-        ratio_txt = f"{ratio} 倍" if ratio is not None else "基线为 0，出现非零值"
+        ratio = top.get("ratio")
+        if top.get("direction") == "down":
+            ratio_txt = f"跌至基线的 {ratio} 倍"
+        elif ratio is not None:
+            ratio_txt = f"峰值为基线的 {ratio} 倍"
+        else:
+            ratio_txt = "基线为 0，出现非零值"
         answer = (
-            f"根因判断：{target} 的 {top.get('metric', '指标')} 异常（峰值为基线 {ratio_txt}），"
+            f"根因判断：{target} 的 {top.get('metric', '指标')} 异常（{ratio_txt}），"
             f"关键错误签名：{sigs[0]['signature']}（出现 {sigs[0]['count']} 次）。\n"
             f"处置建议：参考《{kb_titles[0] if kb_titles else '无匹配 runbook'}》，"
             f"先止血再定位根因，观察指标是否回落。"
@@ -143,13 +151,42 @@ class OpenAICompatLLM:
         self.model = model
         if not self.api_key:
             raise RuntimeError("缺少 LLM_API_KEY（或改用 OraclePlanner 离线跑）")
+        self.last_usage: dict | None = None
+        self.dropped_parallel_calls = 0
 
-    def decide(self, messages: list[dict], tool_block: str) -> Decision:
+    @staticmethod
+    def _json_schema(spec: Any) -> dict:
+        """把 ToolSpec.params 转成标准 JSON Schema —— 这是模型能正确调工具的前提。"""
+        props: dict[str, dict] = {}
+        required: list[str] = []
+        for name, rule in spec.params.items():
+            prop: dict[str, Any] = {"type": rule.get("type", "string")}
+            if rule.get("enum"):
+                prop["enum"] = list(rule["enum"])
+            if rule.get("description"):
+                prop["description"] = rule["description"]
+            props[name] = prop
+            if rule.get("required"):
+                required.append(name)
+        schema: dict[str, Any] = {"type": "object", "properties": props,
+                                  "additionalProperties": False}
+        if required:
+            schema["required"] = required
+        return schema
+
+    def decide(self, messages: list[dict], tool_block: str,
+               specs: list[Any] | None = None) -> Decision:
+        if not specs:
+            raise ValueError(
+                "OpenAICompatLLM 需要 registry.specs()："
+                "缺了它模型拿不到参数名/类型/enum，只会瞎猜参数"
+            )
         tools = [{
             "type": "function",
-            "function": {"name": n.split("(")[0].strip("- "),
-                         "description": n, "parameters": {"type": "object", "properties": {}}},
-        } for n in tool_block.splitlines() if n.strip()]
+            "function": {"name": s.name,
+                         "description": s.description,
+                         "parameters": self._json_schema(s)},
+        } for s in specs]
 
         body = json.dumps({
             "model": self.model,
@@ -164,10 +201,27 @@ class OpenAICompatLLM:
                      "Authorization": f"Bearer {self.api_key}"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read())
+        last_err: Exception | None = None
+        for attempt in range(2):                       # 简单重试：仅对网络/5xx
+            try:
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    data = json.loads(resp.read())
+                break
+            except Exception as e:                     # noqa: BLE001 - 需要区分后决定是否重试
+                last_err = e
+                if attempt == 0:
+                    time.sleep(1.5)
+                    continue
+                raise
+        else:
+            raise last_err  # pragma: no cover
+
+        self.last_usage = data.get("usage")
         msg = data["choices"][0]["message"]
         calls = msg.get("tool_calls") or []
+        if len(calls) > 1:
+            # 已知限制：当前只执行第一个并行调用，其余计数丢弃（TODO: D5 支持多调用合并）
+            self.dropped_parallel_calls += len(calls) - 1
         if calls:
             fn = calls[0]["function"]
             try:

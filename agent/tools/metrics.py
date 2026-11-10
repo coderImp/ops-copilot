@@ -16,6 +16,12 @@ def _data_dir() -> str:
     return os.getenv("OPS_DATA_DIR", "data")
 
 
+# 异常判定阈值（依据：见文档 §9.3，改动需同步更新评测基线）
+RISE_THRESHOLD = 1.8   # 峰值 ≥ 基线 1.8 倍 → 上涨异常（错误率/延迟/连接池）
+FALL_THRESHOLD = 0.5   # 谷值 ≤ 基线 0.5 倍 → 下跌异常（缓存命中率/可用性坍塌）
+TREND_BAND = 1.2       # 首尾对比超过 ±20% 才算有趋势
+
+
 def _connect() -> sqlite3.Connection:
     path = os.path.join(_data_dir(), "metrics.db")
     if not os.path.exists(path):
@@ -54,28 +60,50 @@ def query_metrics(service: str, metric: str = "all", window_minutes: int = 15) -
             continue
         head = vals[: max(1, len(vals) // 5)]      # 前 20% 当基线
         base = sum(head) / len(head)
-        peak = max(vals)
-        latest = vals[-1]
-        # 基线为 0 时不能用比值（会得到 Infinity 假异常），改用绝对阈值
+        peak, trough, latest = max(vals), min(vals), vals[-1]
+
+        # 双向判定：既要抓"涨"（错误率/延迟），也要抓"跌"（缓存命中率/可用性）
         if base <= 1e-9:
-            ratio = None
-            is_anomaly = peak > 0
+            up_ratio = down_ratio = None
+            is_up, is_down = peak > 0, False
         else:
-            ratio = round(peak / base, 2)
-            is_anomaly = ratio >= 1.8
+            up_ratio = round(peak / base, 2)
+            down_ratio = round(trough / base, 2)
+            is_up = up_ratio >= RISE_THRESHOLD
+            is_down = down_ratio <= FALL_THRESHOLD
+
+        if latest > base * TREND_BAND:
+            trend = "rising"
+        elif latest < base / TREND_BAND:
+            trend = "falling"
+        else:
+            trend = "flat"
+
         summary.append({
             "metric": m,
             "baseline_avg": round(base, 3),
             "peak": round(peak, 3),
+            "trough": round(trough, 3),
             "latest": round(latest, 3),
-            "peak_over_baseline": ratio,
-            "trend": "rising" if latest > base * 1.2 else "flat",
+            "peak_over_baseline": up_ratio,
+            "trough_over_baseline": down_ratio,
+            "trend": trend,
         })
-        if is_anomaly:
-            anomalies.append({"metric": m, "peak_over_baseline": ratio,
-                              "baseline": round(base, 3), "peak": round(peak, 3)})
 
-    anomalies.sort(key=lambda x: -(x["peak_over_baseline"] or 999))
+        if is_up:
+            anomalies.append({"metric": m, "direction": "up", "ratio": up_ratio,
+                              "baseline": round(base, 3), "value": round(peak, 3)})
+        elif is_down:
+            anomalies.append({"metric": m, "direction": "down", "ratio": down_ratio,
+                              "baseline": round(base, 3), "value": round(trough, 3)})
+
+    def _severity(a: dict) -> float:
+        r = a.get("ratio")
+        if not r:
+            return 1.0
+        return r if a["direction"] == "up" else 1.0 / r
+
+    anomalies.sort(key=_severity, reverse=True)
 
     return json.dumps({
         "service": service,

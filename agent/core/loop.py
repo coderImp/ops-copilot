@@ -51,7 +51,7 @@ def run(task: str, registry: ToolRegistry, planner: Planner,
     ctx.add_user(task)
     used: list[str] = []
     errors = 0
-    seen: set[tuple[str, str]] = set()
+    seen: dict[tuple[str, str], int] = {}
 
     for step in range(1, max_steps + 1):
         # 第 3 层：预算控制
@@ -59,7 +59,7 @@ def run(task: str, registry: ToolRegistry, planner: Planner,
             return Trajectory(False, "上下文预算耗尽，强制收敛", step, used,
                               "budget", ctx.tokens(), errors)
 
-        decision = planner.decide(ctx.render(), registry.prompt_block())
+        decision = planner.decide(ctx.render(), registry.prompt_block(), registry.specs())
         if verbose:
             print(f"  [step {step}] {decision.kind} {decision.tool} {decision.args}")
 
@@ -67,13 +67,15 @@ def run(task: str, registry: ToolRegistry, planner: Planner,
             return Trajectory(True, decision.text, step, used, "final",
                               ctx.tokens(), errors)
 
-        # 第 2 层：重复动作检测
+        # 第 2 层：重复动作检测（不执行重复调用；第一次重复先给模型一次改主意机会）
         key = (decision.tool, json.dumps(decision.args, sort_keys=True))
-        if key in seen:
-            ctx.add_user("该操作已执行且无新信息，请基于现有信息直接作答。")
-            return Trajectory(False, "重复动作终止：工具与参数完全相同", step, used,
+        seen[key] = seen.get(key, 0) + 1
+        if seen[key] == 2:
+            ctx.add_user("该操作已执行过且没有新信息，请换一个工具或直接基于现有信息作答。")
+            continue
+        if seen[key] > 2:
+            return Trajectory(False, "重复动作终止：同一工具同一参数连续被请求", step, used,
                               "duplicate", ctx.tokens(), errors)
-        seen.add(key)
 
         result = registry.invoke(decision.tool, decision.args)
         used.append(decision.tool)

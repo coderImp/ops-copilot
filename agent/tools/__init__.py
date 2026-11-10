@@ -30,7 +30,7 @@ def build_registry() -> ToolRegistry:
     reg.register(
         ToolSpec(
             name="query_logs",
-            description="按服务查询日志，自动归一化为错误签名并计数，返回 top5 签名与样本。",
+            description="按服务查询日志，自动归一化为错误签名并按出现次数排序，返回 top3 签名与样本。",
             params={
                 "service": {"type": "string", "required": True,
                             "enum": ["gateway", "order-service", "user-service"]},

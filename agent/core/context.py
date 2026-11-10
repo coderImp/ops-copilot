@@ -89,6 +89,9 @@ class ContextManager:
                 compressed.append(m)
                 continue
             text = (m.get("content") or "").strip().replace("\n", " ")
+            if text.startswith("[汇总]"):
+                compressed.append(m)          # 已压缩过，不要再截一刀（否则摘要会漂移）
+                continue
             one_line = text[:120] + ("…" if len(text) > 120 else "")
             compressed.append({"role": "tool", "name": m.get("name", "?"),
                                "content": f"[汇总] {one_line}"})

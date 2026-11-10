@@ -52,7 +52,9 @@ def evaluate_one(sc: dict) -> dict:
 
 
 def _evaluate(sc: dict, tmp: str) -> dict:
-    inject(sc["fault"], out_dir=tmp, minutes=15, seed=hash(sc["id"]) % 1000, clean=True)
+    # 固定种子：必须可复现（不能用 hash(str)，Python 字符串 hash 每进程带随机盐）
+    seed = int("".join(ch for ch in sc["id"] if ch.isdigit()) or 0)
+    inject(sc["fault"], out_dir=tmp, minutes=15, seed=seed, clean=True)
     os.environ["OPS_DATA_DIR"] = tmp
 
     registry = build_registry()
