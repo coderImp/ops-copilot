@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import statistics
@@ -144,9 +145,13 @@ def main() -> None:
         print(f"  {k:24s} {'N/A' if v is None else v}")
 
     with open(args.out, "w", encoding="utf-8") as f:
+        model = os.getenv("LLM_MODEL", "deepseek-chat") if args.planner == "llm" else "n/a"
+        subset = args.only or "all"
+        fp = hashlib.sha1(open(SCENARIOS, "rb").read()).hexdigest()[:8]
         f.write("# Agent 离线评测报告\n\n")
         f.write(f"> 生成时间：{time.strftime('%Y-%m-%d %H:%M:%S')}｜场景数：{summary['n']}"
-                f"｜规划器：**{args.planner}**\n\n")
+                f"｜子集：**{subset}**｜规划器：**{args.planner}**（model: {model}）"
+                f"｜场景集指纹：`{fp}`\n\n")
         if args.planner == "oracle":
             f.write("> ⚠️ **本报告由 OraclePlanner（启发式基线）生成**，用于验证靶场与评测链路，"
                     "不代表模型能力。对外引用/写简历前必须用真实模型重跑"
