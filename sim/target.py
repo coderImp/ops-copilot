@@ -137,7 +137,7 @@ def _write_logs(out_dir: str, fault: dict, service: str, minutes: int,
                 "thread": f"http-nio-8080-exec-{rng.randint(1, 20)}",
             })
     # 噪声日志：让"过滤"成为必要动作
-    for i in range(minutes * 3):
+    for _ in range(minutes * 3):
         ts = started + timedelta(minutes=rng.randint(0, minutes - 1))
         lvl, logger, msg = rng.choice(NOISE)
         lines.append({

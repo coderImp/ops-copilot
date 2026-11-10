@@ -11,6 +11,7 @@ import os
 import sqlite3
 from datetime import datetime, timedelta
 
+
 def _data_dir() -> str:
     return os.getenv("OPS_DATA_DIR", "data")
 

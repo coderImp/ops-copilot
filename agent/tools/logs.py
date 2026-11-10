@@ -11,6 +11,7 @@ import re
 from collections import Counter
 from datetime import datetime, timedelta
 
+
 def _data_dir() -> str:
     return os.getenv("OPS_DATA_DIR", "data")
 

@@ -14,6 +14,7 @@ import os
 import re
 from collections import Counter
 
+
 def _kb_dir() -> str:
     return os.getenv("OPS_KB_DIR", os.path.join("agent", "data", "runbook"))
 
@@ -34,8 +35,8 @@ def _load_docs() -> list[dict]:
             continue
         with open(os.path.join(kb_dir, fn), encoding="utf-8") as f:
             text = f.read()
-        title = next((l.lstrip("# ").strip() for l in text.splitlines()
-                      if l.startswith("#")), fn)
+        title = next((line.lstrip("# ").strip() for line in text.splitlines()
+                      if line.startswith("#")), fn)
         docs.append({"id": fn, "title": title, "text": text,
                      "tokens": _tokenize(text)})
     return docs
@@ -76,7 +77,8 @@ def search_kb(query: str, top_k: int = 3) -> str:
     scored.sort(key=lambda x: -x[0])
     hits = []
     for score, d in scored[:top_k]:
-        body = " ".join(l.strip() for l in d["text"].splitlines() if l.strip())[:220]
+        body = " ".join(line.strip() for line in d["text"].splitlines()
+                        if line.strip())[:220]
         hits.append({"doc": d["id"], "title": d["title"],
                      "score": round(score, 3), "snippet": body})
     return json.dumps({"query": query, "hits": hits,
