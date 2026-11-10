@@ -27,7 +27,7 @@
 
 ```bash
 # 无需任何第三方依赖，Python 3.10+ 即可
-python sim/inject.py pool_exhaust     # 注入一个故障（生成日志 + 指标）
+python -m sim.inject pool_exhaust     # 注入一个故障（生成日志 + 指标）
 python -m eval.run_eval               # 跑全部 24 条评测
 python -m eval.run_eval --only easy   # 只跑简单场景
 ```

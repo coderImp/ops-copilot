@@ -10,6 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
@@ -32,7 +33,7 @@ jobs:
       - name: Unit tests (pytest)
         run: pytest -q
 
-      - name: Smoke - 注入故障并跑评测
+      - name: Smoke - inject fault and run eval
         run: |
-          python sim/inject.py pool_exhaust
+          python -m sim.inject pool_exhaust
           python -m eval.run_eval --only easy
