@@ -93,9 +93,12 @@ def summarize(results: list[dict]) -> dict:
 
     return {
         "n": n,
+        "n_task": len(live),
+        "n_refuse": len(refu),
         "task_success_rate": rate(results, "success"),
         "root_cause_hit_rate": rate(live, "root_hit"),
-        "refusal_accuracy": rate(refu, "refused"),
+        # 没有拒答场景时不能报 0.0 —— 那会被误读成"拒答全错"
+        "refusal_accuracy": rate(refu, "refused") if refu else None,
         "tool_success_rate": round(100 * ok_calls / calls, 1) if calls else 0.0,
         "avg_steps": round(statistics.mean(r["steps"] for r in results), 2),
         "avg_tokens": round(statistics.mean(r["tokens"] for r in results)),
@@ -138,7 +141,7 @@ def main() -> None:
     print(render_table(results))
     print("\n=== 汇总 ===")
     for k, v in summary.items():
-        print(f"  {k:24s} {v}")
+        print(f"  {k:24s} {'N/A' if v is None else v}")
 
     with open(args.out, "w", encoding="utf-8") as f:
         f.write("# Agent 离线评测报告\n\n")
@@ -150,7 +153,7 @@ def main() -> None:
                     "（`python -m eval.run_eval --planner llm`）。\n\n")
         f.write("## 汇总指标\n\n| 指标 | 值 |\n|---|---|\n")
         for k, v in summary.items():
-            f.write(f"| {k} | {v} |\n")
+            f.write(f"| {k} | {'N/A' if v is None else v} |\n")
         f.write("\n## 逐条结果\n\n```\n")
         f.write(render_table(results))
         f.write("\n```\n\n## 失败案例\n\n")
