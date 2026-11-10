@@ -72,3 +72,5 @@ ruff check .    # 跑 lint
 ```
 
 贡献与分支规范见 [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)。
+
+<!-- first push test -->
