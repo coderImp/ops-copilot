@@ -174,6 +174,40 @@ pytest -q
 ruff check .
 ```
 
+> 注意：`python sim/inject.py` 与 `python -m sim.inject` 等价，CI 用后者。
+
+### 4.1 本机开发环境（2026-11-10 记录）
+
+| 组件 | 路径 / 版本 | 备注 |
+|---|---|---|
+| Python | `C:\Users\Administrator\.dsh\dsh-runtimes\...\python.exe` 3.12 | 另有一个项目级 `.venv`（3.15，未装 dev 依赖） |
+| **JDK** | **`D:\tool\jdk18`**（Amazon Corretto **18.0.2**） | 原为 IntelliJ 下载到 `D:\codeProject\Java\jdk`，已迁至 `D:\tool` |
+| JAVA_HOME | 用户级 = `D:\tool\jdk18` | 新开终端才生效（老进程继承旧环境变量） |
+| Maven | **不安装**，用项目内 `mvnw` 包装器 | 避免多版本冲突 |
+| Git remote | `git@github.com:coderImp/ops-copilot.git`（SSH） | — |
+
+**目录约定（重要）**：
+
+```
+D:\tool\              所有 SDK / 工具（jdk18、git、vscode、idea ……）
+D:\codeProject\       所有代码仓库
+  └─ ops-copilot\
+       ├─ .venv\       项目专属虚拟环境（.gitignore 已忽略）
+       └─ gateway\     D6 新建的 Java 模块（属于本项目）
+```
+
+规则：
+1. **SDK 永不放进代码目录**，也不进 Git 仓库。
+2. 每个项目用自己的虚拟环境（项目内 `.venv`），不装到全局 Python。
+3. 依赖缓存（如 Maven `~/.m2`）保持在用户目录，不要提交。
+
+**已知技术债**：JDK 18 非 LTS 且已 EOL（2022-07）。Spring Boot 3.x 可运行，但建议后续换
+**JDK 21 LTS**（`D:\tool\jdk21`），届时只需改 `JAVA_HOME` 与 IDE SDK 指向。
+
+**IntelliJ 注意**：该 JDK 原由 IDEA 的 "Download JDK" 管理（`.jdk.intellij` 标记）。
+目录迁移后需手动重新指定：`File → Project Structure → Platform Settings → SDKs → Add SDK → JDK`
+→ 选 `D:\tool\jdk18`。
+
 ---
 
 ## 5. 接口契约（实现前先定契约）
