@@ -43,6 +43,34 @@ def load_scenarios(only: str | None = None) -> list[dict]:
     return data
 
 
+def score_scenario(*, answer: str, exp: dict, terminator: str,
+                   tools_used: list[str]) -> dict:
+    """统一判分。
+
+    任务组：根因关键词命中 + 必需工具都调过 + 正常收敛 + 不是"纯拒答"。
+    拒答组(misdirect)：不能凭空点名真实根因（forbidden_root_cause）；
+        只说"该服务自身没有证据、建议看上游"是正确表现。
+
+    为什么不再用"出现某个词就判拒答"：真实模型常写"目前无法确定具体对象，但根因是
+    Full GC"——既是正确结论又含"无法确定"，旧逻辑会把正确答案判成拒答（S16/S17 就
+    是这么被冤枉的）。
+    """
+    low = answer.lower()
+    if exp.get("must_refuse"):
+        leaked = [k for k in exp.get("forbidden_root_cause", []) if k.lower() in low]
+        restrained = not leaked
+        return {"success": restrained and terminator == "final",
+                "root_hit": False, "tools_ok": True,
+                "restrained": restrained, "leaked": leaked}
+
+    root_hit = any(k.lower() in low for k in exp.get("root_cause_any", []))
+    tools_ok = all(t in tools_used for t in exp.get("tools", []))
+    pure_refusal = len(answer) < 200 and any(m in answer for m in REFUSAL_MARKERS)
+    success = root_hit and tools_ok and terminator == "final" and not pure_refusal
+    return {"success": success, "root_hit": root_hit, "tools_ok": tools_ok,
+            "restrained": pure_refusal, "leaked": []}
+
+
 def evaluate_one(sc: dict, planner: Any) -> dict:
     """每个场景用独立临时目录注入故障，跑完立即清理，避免在仓库留下残留目录。"""
     tmp = tempfile.mkdtemp(prefix="opscop-")
@@ -66,15 +94,8 @@ def _evaluate(sc: dict, tmp: str, planner: Any) -> dict:
 
     exp = sc["expect"]
     answer = traj.answer or ""
-    refused = any(m in answer for m in REFUSAL_MARKERS)
-    root_hit = any(k.lower() in answer.lower() for k in exp.get("root_cause_any", [])) \
-        if exp.get("root_cause_any") else False
-    tools_ok = all(t in traj.tools_used for t in exp.get("tools", []))
-
-    if exp.get("must_refuse"):
-        success = refused and traj.terminator == "final"
-    else:
-        success = (root_hit and tools_ok and traj.terminator == "final" and not refused)
+    scored = score_scenario(answer=answer, exp=exp,
+                            terminator=traj.terminator, tools_used=traj.tools_used)
 
     tool_calls = len(registry.call_log)
     tool_ok = sum(1 for c in registry.call_log if c.get("ok"))
@@ -83,9 +104,10 @@ def _evaluate(sc: dict, tmp: str, planner: Any) -> dict:
         "id": sc["id"], "difficulty": sc["difficulty"], "fault": sc["fault"],
         "terminator": traj.terminator, "steps": traj.steps,
         "tokens": traj.tokens, "latency_ms": round(latency_ms),
-        "root_hit": root_hit, "tools_ok": tools_ok,
-        "refused": refused, "must_refuse": bool(exp.get("must_refuse")),
-        "success": success,
+        "root_hit": scored["root_hit"], "tools_ok": scored["tools_ok"],
+        "refused": scored["restrained"], "leaked": scored["leaked"],
+        "must_refuse": bool(exp.get("must_refuse")),
+        "success": scored["success"],
         "tool_calls": tool_calls, "tool_ok_calls": tool_ok,
         "answer": answer[:160].replace("\n", " "),
         "answer_full": answer,
@@ -110,10 +132,14 @@ def summarize(results: list[dict]) -> dict:
         "n": n,
         "n_task": len(live),
         "n_refuse": len(refu),
-        "task_success_rate": rate(results, "success"),
-        "root_cause_hit_rate": rate(live, "root_hit"),
-        # 没有拒答场景时不能报 0.0 —— 那会被误读成"拒答全错"
-        "refusal_accuracy": rate(refu, "refused") if refu else None,
+        # 分母必须是任务组（n_task）—— 拒答场景不该算进"任务成功"
+        "task_success_rate": rate(live, "success") if live else None,
+        "root_cause_hit_rate": rate(live, "root_hit") if live else None,
+        # 拒答组两个口径必须分开：
+        #   no_fabrication_rate = 没有凭空点名真实根因（克制）
+        #   refusal_accuracy    = 克制 + 正常收敛（完整通过）
+        "refusal_accuracy": rate(refu, "success") if refu else None,
+        "no_fabrication_rate": rate(refu, "refused") if refu else None,
         "tool_success_rate": round(100 * ok_calls / calls, 1) if calls else 0.0,
         "avg_steps": round(statistics.mean(r["steps"] for r in results), 2),
         "avg_tokens": round(statistics.mean(r["tokens"] for r in results)),
@@ -141,6 +167,8 @@ def main() -> None:
     ap.add_argument("--out", default=os.path.join(HERE, "eval_report.md"))
     ap.add_argument("--trace", default=None,
                     help="把每条场景的完整轨迹(工具调用/参数/结果/完整回答)写进指定 JSONL 文件")
+    ap.add_argument("--from-trace", default=None,
+                    help="从已有 trace JSONL 重算指标，不重新调用模型")
     args = ap.parse_args()
 
     if args.planner == "oracle":
@@ -152,16 +180,38 @@ def main() -> None:
 
     scenarios = load_scenarios(args.only)
 
-    # 真正决定用哪个 planner（此前这里硬编码 Oracle，导致 --planner llm 名不副实）
-    if args.planner == "llm":
-        planner: Any = OpenAICompatLLM(model=os.getenv("LLM_MODEL", "deepseek-chat"))
-        print(f"planner = {type(planner).__name__}({planner.model}) @ {planner.base_url}\n")
+    if args.from_trace:
+        # 从已有轨迹重算指标（判分逻辑变更后不必重新烧钱跑模型）
+        results = []
+        with open(args.from_trace, encoding="utf-8") as tf:
+            for line in tf:
+                if not line.strip():
+                    continue
+                r = json.loads(line)
+                tools_used = [c.get("tool") for c in r.get("call_log", [])]
+                s = score_scenario(answer=r.get("answer_full", ""), exp=r.get("expect", {}),
+                                   terminator=r.get("terminator", ""), tools_used=tools_used)
+                r.update({"success": s["success"], "root_hit": s["root_hit"],
+                          "tools_ok": s["tools_ok"], "refused": s["restrained"],
+                          "leaked": s["leaked"]})
+                results.append(r)
+        actual_planner = f"recomputed-from-trace({os.path.basename(args.from_trace)})"
+        model_name = "n/a"
+        print(f"recomputed {len(results)} results from {args.from_trace}\n")
     else:
-        planner = OraclePlanner()
-        print(f"planner = {type(planner).__name__}\n")
+        # 真正决定用哪个 planner（此前这里硬编码 Oracle，导致 --planner llm 名不副实）
+        if args.planner == "llm":
+            planner: Any = OpenAICompatLLM(model=os.getenv("LLM_MODEL", "deepseek-chat"))
+            print(f"planner = {type(planner).__name__}({planner.model}) @ {planner.base_url}\n")
+        else:
+            planner = OraclePlanner()
+            print(f"planner = {type(planner).__name__}\n")
 
-    print(f"running {len(scenarios)} scenarios ...\n")
-    results = [evaluate_one(sc, planner) for sc in scenarios]
+        print(f"running {len(scenarios)} scenarios ...\n")
+        results = [evaluate_one(sc, planner) for sc in scenarios]
+        actual_planner = type(planner).__name__
+        model_name = getattr(planner, "model", "n/a")
+
     summary = summarize(results)
 
     if args.trace:
@@ -176,9 +226,9 @@ def main() -> None:
         print(f"  {k:24s} {'N/A' if v is None else v}")
 
     with open(args.out, "w", encoding="utf-8") as f:
-        # 记录"实际用的 planner"，而不是命令行参数 —— 避免再次出现"标签说 llm、实际跑 oracle"
-        actual = type(planner).__name__
-        model = getattr(planner, "model", "n/a")
+        # 记录"实际用的 planner/来源"，而不是命令行参数
+        actual = actual_planner
+        model = model_name
         subset = args.only or "all"
         fp = hashlib.sha1(open(SCENARIOS, "rb").read()).hexdigest()[:8]
         f.write("# Agent 离线评测报告\n\n")

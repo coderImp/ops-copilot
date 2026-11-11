@@ -1,80 +1,433 @@
 [
-  {"id": "S01", "fault": "pool_exhaust", "difficulty": "easy", "max_steps": 6,
-   "task": "order-service 报错率突然升到 30%，大量请求在 30 秒左右超时，帮我定位根因。",
-   "expect": {"root_cause_any": ["连接池", "pool", "Hikari"], "tools": ["query_metrics", "query_logs"], "must_refuse": false}},
-  {"id": "S02", "fault": "pool_exhaust", "difficulty": "medium", "max_steps": 6,
-   "task": "order-service 好像出问题了，接口大面积报错，帮我看看。",
-   "expect": {"root_cause_any": ["连接池", "pool", "Hikari"], "tools": ["query_logs"], "must_refuse": false}},
-  {"id": "S03", "fault": "pool_exhaust", "difficulty": "hard", "max_steps": 8,
-   "task": "线上有个服务接口大面积超时，错误率飙到 30%，帮我定位是哪个服务、什么原因。",
-   "expect": {"root_cause_any": ["连接池", "pool", "Hikari"], "tools": ["query_metrics", "query_logs"], "must_refuse": false}},
-
-  {"id": "S04", "fault": "slow_sql", "difficulty": "easy", "max_steps": 6,
-   "task": "order-service 的 P99 延迟从 130ms 涨到 4.8 秒，但错误率不高，帮我定位。",
-   "expect": {"root_cause_any": ["慢查询", "SlowQuery", "索引"], "tools": ["query_metrics", "query_logs"], "must_refuse": false}},
-  {"id": "S05", "fault": "slow_sql", "difficulty": "medium", "max_steps": 6,
-   "task": "order-service 变慢了，帮我查下原因。",
-   "expect": {"root_cause_any": ["慢查询", "SlowQuery", "索引"], "tools": ["query_logs"], "must_refuse": false}},
-  {"id": "S06", "fault": "slow_sql", "difficulty": "hard", "max_steps": 8,
-   "task": "有个服务查询变慢，P99 到秒级，帮我定位根因。",
-   "expect": {"root_cause_any": ["慢查询", "SlowQuery", "索引"], "tools": ["query_metrics", "query_logs"], "must_refuse": false}},
-
-  {"id": "S07", "fault": "npe", "difficulty": "easy", "max_steps": 6,
-   "task": "order-service 错误率升到 22%，5xx 也涨了，但延迟正常，帮我定位。",
-   "expect": {"root_cause_any": ["空指针", "NullPointer", "NPE"], "tools": ["query_metrics", "query_logs"], "must_refuse": false}},
-  {"id": "S08", "fault": "npe", "difficulty": "medium", "max_steps": 6,
-   "task": "order-service 有大量异常，帮我看看是什么问题。",
-   "expect": {"root_cause_any": ["空指针", "NullPointer", "NPE"], "tools": ["query_logs"], "must_refuse": false}},
-  {"id": "S09", "fault": "npe", "difficulty": "hard", "max_steps": 8,
-   "task": "线上错误率上升但延迟没变化，帮我确认是哪个服务、什么类型的异常。",
-   "expect": {"root_cause_any": ["空指针", "NullPointer", "NPE"], "tools": ["query_logs"], "must_refuse": false}},
-
-  {"id": "S10", "fault": "cascade_timeout", "difficulty": "easy", "max_steps": 6,
-   "task": "gateway 的 P99 延迟飙到 5 秒，5xx 增加，但后端服务自己的指标看起来正常，帮我定位。",
-   "expect": {"root_cause_any": ["下游", "超时", "Feign", "级联"], "tools": ["query_metrics", "query_logs"], "must_refuse": false}},
-  {"id": "S11", "fault": "cascade_timeout", "difficulty": "medium", "max_steps": 6,
-   "task": "gateway 在大量报错，帮我查下根因。",
-   "expect": {"root_cause_any": ["下游", "超时", "Feign", "级联"], "tools": ["query_logs"], "must_refuse": false}},
-  {"id": "S12", "fault": "cascade_timeout", "difficulty": "hard", "max_steps": 8,
-   "task": "用户反馈请求大面积超时，帮我定位是哪个环节出的问题。",
-   "expect": {"root_cause_any": ["下游", "超时", "Feign", "级联"], "tools": ["query_logs"], "must_refuse": false}},
-
-  {"id": "S13", "fault": "redis_down", "difficulty": "easy", "max_steps": 6,
-   "task": "order-service 缓存命中率从 93% 掉到 2%，错误率上升，帮我定位。",
-   "expect": {"root_cause_any": ["Redis", "缓存"], "tools": ["query_metrics", "query_logs"], "must_refuse": false}},
-  {"id": "S14", "fault": "redis_down", "difficulty": "medium", "max_steps": 6,
-   "task": "order-service 突然大量报错，帮我查一下。",
-   "expect": {"root_cause_any": ["Redis", "缓存"], "tools": ["query_logs"], "must_refuse": false}},
-  {"id": "S15", "fault": "redis_down", "difficulty": "hard", "max_steps": 8,
-   "task": "有个服务的缓存相关指标异常，帮我定位根因。",
-   "expect": {"root_cause_any": ["Redis", "缓存"], "tools": ["query_logs"], "must_refuse": false}},
-
-  {"id": "S16", "fault": "gc_pause", "difficulty": "easy", "max_steps": 6,
-   "task": "order-service 的 gc_pause_ms 从 30ms 涨到 2100ms，延迟出现毛刺，帮我定位。",
-   "expect": {"root_cause_any": ["GC", "停顿"], "tools": ["query_metrics", "query_logs"], "must_refuse": false}},
-  {"id": "S17", "fault": "gc_pause", "difficulty": "medium", "max_steps": 6,
-   "task": "order-service 有周期性卡顿，帮我查原因。",
-   "expect": {"root_cause_any": ["GC", "停顿"], "tools": ["query_logs"], "must_refuse": false}},
-  {"id": "S18", "fault": "gc_pause", "difficulty": "hard", "max_steps": 8,
-   "task": "有个服务出现周期性延迟毛刺，帮我定位根因。",
-   "expect": {"root_cause_any": ["GC", "停顿"], "tools": ["query_logs"], "must_refuse": false}},
-
-  {"id": "S19", "fault": "pool_exhaust", "difficulty": "misdirect", "max_steps": 6,
-   "task": "user-service 报错率升高了，帮我定位。",
-   "expect": {"root_cause_any": [], "tools": [], "must_refuse": true}},
-  {"id": "S20", "fault": "slow_sql", "difficulty": "misdirect", "max_steps": 6,
-   "task": "user-service 响应变慢，P99 到 5 秒，帮我定位。",
-   "expect": {"root_cause_any": [], "tools": [], "must_refuse": true}},
-  {"id": "S21", "fault": "npe", "difficulty": "misdirect", "max_steps": 6,
-   "task": "user-service 出现 5xx，帮我查。",
-   "expect": {"root_cause_any": [], "tools": [], "must_refuse": true}},
-  {"id": "S22", "fault": "cascade_timeout", "difficulty": "misdirect", "max_steps": 6,
-   "task": "user-service 连接超时，帮我定位。",
-   "expect": {"root_cause_any": [], "tools": [], "must_refuse": true}},
-  {"id": "S23", "fault": "redis_down", "difficulty": "misdirect", "max_steps": 6,
-   "task": "user-service 缓存有问题，帮我查。",
-   "expect": {"root_cause_any": [], "tools": [], "must_refuse": true}},
-  {"id": "S24", "fault": "gc_pause", "difficulty": "misdirect", "max_steps": 6,
-   "task": "user-service GC 频繁，帮我定位。",
-   "expect": {"root_cause_any": [], "tools": [], "must_refuse": true}}
+ {
+  "id": "S01",
+  "fault": "pool_exhaust",
+  "difficulty": "easy",
+  "max_steps": 6,
+  "task": "order-service 报错率突然升到 30%，大量请求在 30 秒左右超时，帮我定位根因。",
+  "expect": {
+   "root_cause_any": [
+    "连接池",
+    "pool",
+    "Hikari"
+   ],
+   "tools": [
+    "query_metrics",
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S02",
+  "fault": "pool_exhaust",
+  "difficulty": "medium",
+  "max_steps": 6,
+  "task": "order-service 好像出问题了，接口大面积报错，帮我看看。",
+  "expect": {
+   "root_cause_any": [
+    "连接池",
+    "pool",
+    "Hikari"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S03",
+  "fault": "pool_exhaust",
+  "difficulty": "hard",
+  "max_steps": 8,
+  "task": "线上有个服务接口大面积超时，错误率飙到 30%，帮我定位是哪个服务、什么原因。",
+  "expect": {
+   "root_cause_any": [
+    "连接池",
+    "pool",
+    "Hikari"
+   ],
+   "tools": [
+    "query_metrics",
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S04",
+  "fault": "slow_sql",
+  "difficulty": "easy",
+  "max_steps": 6,
+  "task": "order-service 的 P99 延迟从 130ms 涨到 4.8 秒，但错误率不高，帮我定位。",
+  "expect": {
+   "root_cause_any": [
+    "慢查询",
+    "SlowQuery",
+    "索引"
+   ],
+   "tools": [
+    "query_metrics",
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S05",
+  "fault": "slow_sql",
+  "difficulty": "medium",
+  "max_steps": 6,
+  "task": "order-service 变慢了，帮我查下原因。",
+  "expect": {
+   "root_cause_any": [
+    "慢查询",
+    "SlowQuery",
+    "索引"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S06",
+  "fault": "slow_sql",
+  "difficulty": "hard",
+  "max_steps": 8,
+  "task": "有个服务查询变慢，P99 到秒级，帮我定位根因。",
+  "expect": {
+   "root_cause_any": [
+    "慢查询",
+    "SlowQuery",
+    "索引"
+   ],
+   "tools": [
+    "query_metrics",
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S07",
+  "fault": "npe",
+  "difficulty": "easy",
+  "max_steps": 6,
+  "task": "order-service 错误率升到 22%，5xx 也涨了，但延迟正常，帮我定位。",
+  "expect": {
+   "root_cause_any": [
+    "空指针",
+    "NullPointer",
+    "NPE"
+   ],
+   "tools": [
+    "query_metrics",
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S08",
+  "fault": "npe",
+  "difficulty": "medium",
+  "max_steps": 6,
+  "task": "order-service 有大量异常，帮我看看是什么问题。",
+  "expect": {
+   "root_cause_any": [
+    "空指针",
+    "NullPointer",
+    "NPE"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S09",
+  "fault": "npe",
+  "difficulty": "hard",
+  "max_steps": 8,
+  "task": "线上错误率上升但延迟没变化，帮我确认是哪个服务、什么类型的异常。",
+  "expect": {
+   "root_cause_any": [
+    "空指针",
+    "NullPointer",
+    "NPE"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S10",
+  "fault": "cascade_timeout",
+  "difficulty": "easy",
+  "max_steps": 6,
+  "task": "gateway 的 P99 延迟飙到 5 秒，5xx 增加，但后端服务自己的指标看起来正常，帮我定位。",
+  "expect": {
+   "root_cause_any": [
+    "下游",
+    "超时",
+    "Feign",
+    "级联"
+   ],
+   "tools": [
+    "query_metrics",
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S11",
+  "fault": "cascade_timeout",
+  "difficulty": "medium",
+  "max_steps": 6,
+  "task": "gateway 在大量报错，帮我查下根因。",
+  "expect": {
+   "root_cause_any": [
+    "下游",
+    "超时",
+    "Feign",
+    "级联"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S12",
+  "fault": "cascade_timeout",
+  "difficulty": "hard",
+  "max_steps": 8,
+  "task": "用户反馈请求大面积超时，帮我定位是哪个环节出的问题。",
+  "expect": {
+   "root_cause_any": [
+    "下游",
+    "超时",
+    "Feign",
+    "级联"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S13",
+  "fault": "redis_down",
+  "difficulty": "easy",
+  "max_steps": 6,
+  "task": "order-service 缓存命中率从 93% 掉到 2%，错误率上升，帮我定位。",
+  "expect": {
+   "root_cause_any": [
+    "Redis",
+    "缓存"
+   ],
+   "tools": [
+    "query_metrics",
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S14",
+  "fault": "redis_down",
+  "difficulty": "medium",
+  "max_steps": 6,
+  "task": "order-service 突然大量报错，帮我查一下。",
+  "expect": {
+   "root_cause_any": [
+    "Redis",
+    "缓存"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S15",
+  "fault": "redis_down",
+  "difficulty": "hard",
+  "max_steps": 8,
+  "task": "有个服务的缓存相关指标异常，帮我定位根因。",
+  "expect": {
+   "root_cause_any": [
+    "Redis",
+    "缓存"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S16",
+  "fault": "gc_pause",
+  "difficulty": "easy",
+  "max_steps": 6,
+  "task": "order-service 的 gc_pause_ms 从 30ms 涨到 2100ms，延迟出现毛刺，帮我定位。",
+  "expect": {
+   "root_cause_any": [
+    "GC",
+    "停顿"
+   ],
+   "tools": [
+    "query_metrics",
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S17",
+  "fault": "gc_pause",
+  "difficulty": "medium",
+  "max_steps": 6,
+  "task": "order-service 有周期性卡顿，帮我查原因。",
+  "expect": {
+   "root_cause_any": [
+    "GC",
+    "停顿"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S18",
+  "fault": "gc_pause",
+  "difficulty": "hard",
+  "max_steps": 8,
+  "task": "有个服务出现周期性延迟毛刺，帮我定位根因。",
+  "expect": {
+   "root_cause_any": [
+    "GC",
+    "停顿"
+   ],
+   "tools": [
+    "query_logs"
+   ],
+   "must_refuse": false
+  }
+ },
+ {
+  "id": "S19",
+  "fault": "pool_exhaust",
+  "difficulty": "misdirect",
+  "max_steps": 6,
+  "task": "user-service 报错率升高了，帮我定位。",
+  "expect": {
+   "root_cause_any": [],
+   "tools": [],
+   "must_refuse": true,
+   "forbidden_root_cause": [
+    "连接池",
+    "pool",
+    "Hikari"
+   ]
+  }
+ },
+ {
+  "id": "S20",
+  "fault": "slow_sql",
+  "difficulty": "misdirect",
+  "max_steps": 6,
+  "task": "user-service 响应变慢，P99 到 5 秒，帮我定位。",
+  "expect": {
+   "root_cause_any": [],
+   "tools": [],
+   "must_refuse": true,
+   "forbidden_root_cause": [
+    "慢查询",
+    "SlowQuery",
+    "索引"
+   ]
+  }
+ },
+ {
+  "id": "S21",
+  "fault": "npe",
+  "difficulty": "misdirect",
+  "max_steps": 6,
+  "task": "user-service 出现 5xx，帮我查。",
+  "expect": {
+   "root_cause_any": [],
+   "tools": [],
+   "must_refuse": true,
+   "forbidden_root_cause": [
+    "空指针",
+    "NullPointer",
+    "NPE"
+   ]
+  }
+ },
+ {
+  "id": "S22",
+  "fault": "cascade_timeout",
+  "difficulty": "misdirect",
+  "max_steps": 6,
+  "task": "user-service 连接超时，帮我定位。",
+  "expect": {
+   "root_cause_any": [],
+   "tools": [],
+   "must_refuse": true,
+   "forbidden_root_cause": [
+    "下游",
+    "Feign",
+    "级联"
+   ]
+  }
+ },
+ {
+  "id": "S23",
+  "fault": "redis_down",
+  "difficulty": "misdirect",
+  "max_steps": 6,
+  "task": "user-service 缓存有问题，帮我查。",
+  "expect": {
+   "root_cause_any": [],
+   "tools": [],
+   "must_refuse": true,
+   "forbidden_root_cause": [
+    "Redis",
+    "缓存击穿",
+    "缓存"
+   ]
+  }
+ },
+ {
+  "id": "S24",
+  "fault": "gc_pause",
+  "difficulty": "misdirect",
+  "max_steps": 6,
+  "task": "user-service GC 频繁，帮我定位。",
+  "expect": {
+   "root_cause_any": [],
+   "tools": [],
+   "must_refuse": true,
+   "forbidden_root_cause": [
+    "Full GC",
+    "GC 停顿",
+    "老年代"
+   ]
+  }
+ }
 ]
