@@ -185,6 +185,30 @@ git push -u origin feature/eval-60-cases
 3. 描述按 `.github/PULL_REQUEST_TEMPLATE.md` 填（自测清单 + 指标变化）
 4. 等 CI 绿 → **Squash and merge** → **Delete branch**
 
+### ⚠️ 最后一步：同步 main（否则 GitHub 首页看到的还是旧文档）
+
+**GitHub 仓库首页显示的是默认分支 `main`**，而你的日常提交都在 `develop`。
+不同步的话，首页 README、代码都是旧的——很容易让人误以为"改了没生效"。
+
+一条命令搞定：
+
+```powershell
+scripts\sync.cmd
+```
+
+它等价于：
+
+```powershell
+git checkout develop; git pull --rebase
+git checkout main
+git merge --ff-only develop     # 只允许快进，不会产生 merge commit
+git push
+git checkout develop
+```
+
+> 规则：**每天收工必跑一次 `sync.cmd`**。
+> 如果 `main` 无法快进（说明有人在 main 上直接改过），命令会提示你手动处理。
+
 ### 第二天重复
 
 ```powershell
