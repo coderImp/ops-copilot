@@ -88,6 +88,10 @@ def _evaluate(sc: dict, tmp: str) -> dict:
         "success": success,
         "tool_calls": tool_calls, "tool_ok_calls": tool_ok,
         "answer": answer[:160].replace("\n", " "),
+        "answer_full": answer,
+        "call_log": registry.call_log,
+        "task": sc["task"],
+        "expect": exp,
     }
 
 
@@ -135,6 +139,8 @@ def main() -> None:
     ap.add_argument("--only", default=None, help="easy|medium|hard|misdirect")
     ap.add_argument("--planner", default="oracle", choices=["oracle", "llm"])
     ap.add_argument("--out", default=os.path.join(HERE, "eval_report.md"))
+    ap.add_argument("--trace", default=None,
+                    help="把每条场景的完整轨迹(工具调用/参数/结果/完整回答)写进指定 JSONL 文件")
     args = ap.parse_args()
 
     if args.planner == "oracle":
@@ -148,6 +154,12 @@ def main() -> None:
     print(f"running {len(scenarios)} scenarios ...\n")
     results = [evaluate_one(sc) for sc in scenarios]
     summary = summarize(results)
+
+    if args.trace:
+        with open(args.trace, "w", encoding="utf-8") as tf:
+            for r in results:
+                tf.write(json.dumps(r, ensure_ascii=False) + "\n")
+        print(f"traces -> {args.trace}")
 
     print(render_table(results))
     print("\n=== 汇总 ===")
