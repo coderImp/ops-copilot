@@ -41,7 +41,7 @@ git branch -f main develop
 if errorlevel 1 exit /b 1
 
 echo.
-echo == push develop -> remote main (fast-forward only)
+echo == push develop to remote main (fast-forward only)
 git push origin develop:main
 if errorlevel 1 (
     echo [WARN] remote main rejected the update ^(not a fast-forward^).
