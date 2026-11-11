@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -174,6 +175,32 @@ class OpenAICompatLLM:
             schema["required"] = required
         return schema
 
+    @staticmethod
+    def to_api_messages(messages: list[dict]) -> list[dict]:
+        """把内部上下文转成 OpenAI 兼容格式。
+
+        两个必踩的坑：
+        1) 内部用 {"role":"tool","name":..,"content":..} 存工具结果，但 OpenAI 的
+           tool 消息必须紧跟 assistant 的 tool_calls 并带 tool_call_id。我们不走
+           原生 tool 通道，改成「观测」user 消息，任何兼容接口都能吃。
+        2) system 只能出现在首条，出现在中间会被 422 拒绝 —— 非首位的 system 降级为 user。
+        """
+        out: list[dict] = []
+        for m in messages:
+            role = m.get("role", "user")
+            content = m.get("content") or ""
+            if role == "tool":
+                name = m.get("name", "tool")
+                out.append({"role": "user",
+                            "content": f'<observation tool="{name}">\n{content}\n</observation>'})
+            elif role == "system" and out:
+                out.append({"role": "user", "content": content})
+            else:
+                out.append({"role": role, "content": content})
+        if not out:
+            out = [{"role": "user", "content": ""}]
+        return out
+
     def decide(self, messages: list[dict], tool_block: str,
                specs: list[Any] | None = None) -> Decision:
         if not specs:
@@ -188,13 +215,17 @@ class OpenAICompatLLM:
                          "parameters": self._json_schema(s)},
         } for s in specs]
 
+        api_messages = self.to_api_messages(messages)
         body = json.dumps({
             "model": self.model,
-            "messages": messages,
+            "messages": api_messages,
             "tools": tools,
             "tool_choice": "auto",
             "temperature": 0,
         }).encode()
+        if os.getenv("OPS_DEBUG_LLM"):
+            print(f"[debug] POST {self.base_url}/chat/completions "
+                  f"msgs={len(api_messages)} bytes={len(body)}")
         req = urllib.request.Request(
             f"{self.base_url}/chat/completions", data=body,
             headers={"Content-Type": "application/json",
@@ -207,6 +238,16 @@ class OpenAICompatLLM:
                 with urllib.request.urlopen(req, timeout=60) as resp:
                     data = json.loads(resp.read())
                 break
+            except urllib.error.HTTPError as e:         # 4xx/5xx：把响应体贴出来，否则没法排查
+                body_txt = ""
+                try:
+                    body_txt = e.read().decode("utf-8", "replace")[:600]
+                except Exception:                      # noqa: BLE001 - 读不到就算了
+                    pass
+                msg = f"LLM API {e.code} {e.reason}: {body_txt}"
+                if e.code < 500:
+                    raise RuntimeError(msg) from e      # 4xx 重试没用，直接抛
+                last_err = RuntimeError(msg)
             except Exception as e:                     # noqa: BLE001 - 需要区分后决定是否重试
                 last_err = e
                 if attempt == 0:
