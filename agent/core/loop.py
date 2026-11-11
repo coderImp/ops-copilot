@@ -72,7 +72,12 @@ def run(task: str, registry: ToolRegistry, planner: Planner,
         seen[key] = seen.get(key, 0) + 1
         if seen[key] == 2:
             ctx.add_user("该操作已执行过且没有新信息，请换一个工具或直接基于现有信息作答。")
-            continue
+
+            forced = planner.decide(ctx.render(), registry.prompt_block(),
+                            registry.specs(), force_text=True)
+            return Trajectory(True, forced.text, step, used, "final", ctx.tokens(), errors)
+
+
         if seen[key] > 2:
             return Trajectory(False, "重复动作终止：同一工具同一参数连续被请求", step, used,
                               "duplicate", ctx.tokens(), errors)

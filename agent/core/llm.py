@@ -28,7 +28,7 @@ class Decision:
 
 class Planner(Protocol):
     def decide(self, messages: list[dict], tool_block: str,
-               specs: list[Any] | None = None) -> Decision: ...
+               specs: list[Any] | None = None, force_text: bool = False) -> Decision: ...
 
 
 # ---------------------------------------------------------------- Oracle
@@ -72,7 +72,7 @@ class OraclePlanner:
         return out
 
     def decide(self, messages: list[dict], tool_block: str,
-               specs: list[Any] | None = None) -> Decision:
+               specs: list[Any] | None = None, force_text: bool = False) -> Decision:
         task = next((m["content"] for m in messages if m["role"] == "user"), "")
         named = self._find_service(task)
         payloads = self._tool_payloads(messages)
@@ -202,7 +202,7 @@ class OpenAICompatLLM:
         return out
 
     def decide(self, messages: list[dict], tool_block: str,
-               specs: list[Any] | None = None) -> Decision:
+               specs: list[Any] | None = None, force_text: bool = False) -> Decision:
         if not specs:
             raise ValueError(
                 "OpenAICompatLLM 需要 registry.specs()："
@@ -216,13 +216,18 @@ class OpenAICompatLLM:
         } for s in specs]
 
         api_messages = self.to_api_messages(messages)
-        body = json.dumps({
+        payload: dict[str, Any] = {
             "model": self.model,
             "messages": api_messages,
-            "tools": tools,
-            "tool_choice": "auto",
             "temperature": 0,
-        }).encode()
+        }
+        if force_text:
+            # 强制收敛：不给工具，逼模型基于现有信息直接给结论
+            payload["tool_choice"] = "none"
+        else:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+        body = json.dumps(payload).encode()
         if os.getenv("OPS_DEBUG_LLM"):
             print(f"[debug] POST {self.base_url}/chat/completions "
                   f"msgs={len(api_messages)} bytes={len(body)}")

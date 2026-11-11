@@ -407,9 +407,11 @@
    "tools": [],
    "must_refuse": true,
    "forbidden_root_cause": [
-    "Redis",
-    "缓存击穿",
-    "缓存"
+    "RedisConnectionFailureException",
+    "连接被拒绝",
+    "缓存不可用",
+    "redis 宕机",
+    "Redis 挂了"
    ]
   }
  },
@@ -424,9 +426,10 @@
    "tools": [],
    "must_refuse": true,
    "forbidden_root_cause": [
-    "Full GC",
-    "GC 停顿",
-    "老年代"
+    "Full GC (Allocation Failure)",
+    "老年代泄漏",
+    "回收率不足",
+    "内存泄漏"
    ]
   }
  }

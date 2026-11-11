@@ -13,7 +13,10 @@ class ScriptedPlanner:
         self._d = list(decisions)
         self._i = 0
 
-    def decide(self, messages, tool_block, specs=None):
+    def decide(self, messages, tool_block, specs=None, force_text=False):
+        if force_text:
+            # 循环在重复动作时会以 force_text=True 强制收敛，此时只应产出结论
+            return Decision("final", text="forced conclusion")
         d = self._d[min(self._i, len(self._d) - 1)]
         self._i += 1
         return d
@@ -34,11 +37,13 @@ def test_final_on_first_step():
     assert traj.ok and traj.terminator == "final" and traj.steps == 1
 
 
-def test_duplicate_action_terminates():
+def test_duplicate_forces_final_instead_of_dying():
+    """重复调用不再直接判死：第 2 次重复应以 force_text=True 强制收敛出结论。"""
     d = Decision("tool", "probe", {"n": 1})
     traj = run("t", _reg(), ScriptedPlanner([d, d, d]), max_steps=8)
-    assert traj.terminator == "duplicate"
-    assert not traj.ok
+    assert traj.terminator == "final"
+    assert traj.ok
+    assert traj.answer == "forced conclusion"
 
 
 def test_max_steps_terminates():

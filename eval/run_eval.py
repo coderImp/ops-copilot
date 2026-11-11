@@ -171,7 +171,7 @@ def main() -> None:
                     help="从已有 trace JSONL 重算指标，不重新调用模型")
     args = ap.parse_args()
 
-    if args.planner == "oracle":
+    if args.planner == "oracle" and not args.from_trace:
         print("=" * 72)
         print("[重要] 当前使用 OraclePlanner —— 启发式基线，只用于验证")
         print("       靶场 / 工具 / 评测链路是否正常，**不代表模型能力**。")
@@ -181,13 +181,22 @@ def main() -> None:
     scenarios = load_scenarios(args.only)
 
     if args.from_trace:
-        # 从已有轨迹重算指标（判分逻辑变更后不必重新烧钱跑模型）
+        # 从已有轨迹重算指标（判分逻辑变更后不必重新烧钱跑模型）。
+        # 注意：判分规则以当前 scenarios.json 为准，trace 只提供证据（回答/调用链/终止方式）。
+        # 否则改了 scenarios.json 的 expect 也不会生效（trace 里存的是旧规则）。
+        cur = {s["id"]: s for s in load_scenarios(None)}
         results = []
         with open(args.from_trace, encoding="utf-8") as tf:
             for line in tf:
                 if not line.strip():
                     continue
                 r = json.loads(line)
+                latest = cur.get(r.get("id", ""))
+                if latest:
+                    r["expect"] = latest["expect"]
+                    r["difficulty"] = latest["difficulty"]
+                    r["fault"] = latest["fault"]
+                    r["max_steps"] = latest.get("max_steps", r.get("max_steps"))
                 tools_used = [c.get("tool") for c in r.get("call_log", [])]
                 s = score_scenario(answer=r.get("answer_full", ""), exp=r.get("expect", {}),
                                    terminator=r.get("terminator", ""), tools_used=tools_used)
@@ -197,7 +206,8 @@ def main() -> None:
                 results.append(r)
         actual_planner = f"recomputed-from-trace({os.path.basename(args.from_trace)})"
         model_name = "n/a"
-        print(f"recomputed {len(results)} results from {args.from_trace}\n")
+        print(f"recomputed {len(results)} results from {args.from_trace}")
+        print("(scoring rules taken from eval/scenarios.json)\n")
     else:
         # 真正决定用哪个 planner（此前这里硬编码 Oracle，导致 --planner llm 名不副实）
         if args.planner == "llm":
