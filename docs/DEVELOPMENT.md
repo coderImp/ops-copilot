@@ -50,7 +50,7 @@ Ops Copilot 是一个**面向 Java 微服务的排障 Agent**。它的技术内�
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  接入层（本周不做）Spring Boot 网关 / SSE / 限流      │
+│  接入层（D6）FastAPI + SSE / 限流 / 会话            │
 └───────────────────────┬─────────────────────────────┘
                         ▼
 ┌─────────────────────────────────────────────────────┐
@@ -181,7 +181,7 @@ ruff check .
 | 组件 | 路径 / 版本 | 备注 |
 |---|---|---|
 | Python | `C:\Users\Administrator\.dsh\dsh-runtimes\...\python.exe` 3.12 | 另有一个项目级 `.venv`（3.15，未装 dev 依赖） |
-| **JDK** | **`D:\tool\jdk18`**（Amazon Corretto **18.0.2**） | 原为 IntelliJ 下载到 `D:\codeProject\Java\jdk`，已迁至 `D:\tool` |
+| JDK（**非必需，备用**） | `D:\tool\jdk18`（Amazon Corretto 18.0.2） | D6 改为 FastAPI + SSE，本项目不再依赖 Java；保留以备 2027 年投 Java 栈团队 |
 | JAVA_HOME | 用户级 = `D:\tool\jdk18` | 新开终端才生效（老进程继承旧环境变量） |
 | Maven | **不安装**，用项目内 `mvnw` 包装器 | 避免多版本冲突 |
 | Git remote | `git@github.com:coderImp/ops-copilot.git`（SSH） | — |
@@ -201,8 +201,8 @@ D:\codeProject\       所有代码仓库
 2. 每个项目用自己的虚拟环境（项目内 `.venv`），不装到全局 Python。
 3. 依赖缓存（如 Maven `~/.m2`）保持在用户目录，不要提交。
 
-**已知技术债**：JDK 18 非 LTS 且已 EOL（2022-07）。Spring Boot 3.x 可运行，但建议后续换
-**JDK 21 LTS**（`D:\tool\jdk21`），届时只需改 `JAVA_HOME` 与 IDE SDK 指向。
+**已知技术债**：JDK 18 非 LTS 且已 EOL（2022-07）。本项目已改为 FastAPI + SSE，**不再依赖 Java**；
+JDK 仅作为 2027 年投 Java 栈团队的备用环境保留。
 
 **IntelliJ 注意**：该 JDK 原由 IDEA 的 "Download JDK" 管理（`.jdk.intellij` 标记）。
 目录迁移后需手动重新指定：`File → Project Structure → Platform Settings → SDKs → Add SDK → JDK`
@@ -411,25 +411,32 @@ CREATE INDEX idx_m ON metrics(service, metric, ts);
 
 ---
 
-## 11. 里程碑与范围（v3：全量保留，11/11 – 11/20）
+## 11. 里程碑与范围（v4：全量保留，11/11 – 11/22）
 
 > 具体排期见 [ROADMAP_DAILY.md](ROADMAP_DAILY.md)。本节只定义范围边界：**原设计不做删减**，
-> 只顺延时间（11/15 → 11/20）。
+> 仅顺延时间（11/15 → 11/22），并按评审意见把接入层从 Spring Boot 改为 **FastAPI + SSE**。
 
-### 必做（D1–D10）
+### 必做（D1–D12）
 
-| # | 事项 | 验收 |
-|---|---|---|
-| 1 | 接入真实模型，跑出 24 条基线 | 报告含真实数字 + 失败案例 |
-| 2 | 混合检索（BM25+向量+RRF） | 实验 A 有前后对比 |
-| 3 | 评测集扩到 ≥60 条 | 覆盖 6 故障 × 3 难度 + 拒答 |
-| 4 | MCP Server（最小） | 3 个工具可通过 MCP 调用 |
-| 5 | 文档四件套 | README + 本文件 + ROADMAP + GIT_WORKFLOW |
-| 6 | Git 历史规范 | 每天 ≥3 次 conventional commit |
+| # | 事项 | 验收 | 日期 |
+|---|---|---|---|
+| 1 | 真实模型全量基线（24 条）+ 失败归因 | 报告含真实数字 + 5 类失败标签 | D1 |
+| 2 | 混合检索（BM25+向量+RRF） | 实验 A 有前后对比 | D2 |
+| 3 | **评测客观性**：结构化字段比对 + LLM-as-judge | 双口径成功率 + 差异解释 | D3 |
+| 4 | 评测集扩到 60 条（含多故障叠加） | 覆盖 6 故障 × 3 难度 + 拒答 | D3 |
+| 5 | MCP Server + 工具路由接线 | 3 工具可通过 MCP 调用 | D4 |
+| 6 | 并行 fan-out 多 Agent | 实验 D 延迟对比 | D5 |
+| 7 | **FastAPI + SSE 服务化** | curl 可见流式输出 | D6 |
+| 8 | 限流 / 会话隔离 / 审计 / 可观测 | 50 QPS 不崩，trace 可查 | D7 |
+| 9 | **场景 B**（同 runtime 换工具集） | 不改 runtime 即可跑通 | D8 |
+| 10 | 评测集扩到 120 条 | 5 类题型配比完整 | D8 |
+| 11 | 实验 B（上下文）+ 实验 C（rerank） | 四组实验汇总表 | D9 |
+| 12 | 收口：120 条终评 + demo + 简历 + tag v0.2.0 | 可投递 | D10 |
+| 13 | 追问演练（三个必答题） | 脱稿讲 40 分钟 | D11–D12 |
 
-### 加分（同属 v3 范围，排在 D9–D10）
+### 明确不做
 
-并行 fan-out 多 Agent（补 Multi-Agent 考点）、Spring Boot 网关 + SSE + 限流、可观测（trace 落库）、120 条评测集、4 组对照实验。
+多租户计费、权限体系、前端 UI、模型微调、演示视频。
 
 ---
 
@@ -438,7 +445,7 @@ CREATE INDEX idx_m ON metrics(service, metric, ts);
 | 风险 | 影响 | 缓解 |
 |---|---|---|
 | Oracle 100% 成功率被误当成绩 | 面试一问就崩 | 报告首行强制标注"基线，非模型能力" |
-| 靶场是模拟，非真实进程 | 被质疑"没上过生产" | 诚实表述；W6 可替换为真 Spring Boot，接口不变 |
+| 靶场是模拟，非真实进程 | 被质疑"没上过生产" | 诚实表述；靶场产出的是真实格式日志/指标，接口与真服务一致，替换只改数据源 |
 | 真实 LLM 成本 | 24 条 × 多轮可能烧钱 | 加 response cache；评测分"离线 mock / 在线抽样"两档 |
 | 评测集偏简单 | 指标虚高 | 引入 misdirect（6 条）与 hard（不指定服务）场景 |
 | 工具输出截断破坏 JSON | 下游解析失败 | 紧凑输出 + 解析容错（已修复，见 5.4） |

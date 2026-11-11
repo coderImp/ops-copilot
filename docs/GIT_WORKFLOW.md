@@ -305,15 +305,20 @@ powershell -File scripts/daily.ps1 -Msg "feat(eval): extend to 60 scenarios"
 
 ---
 
-## 11. 本周 Git 计划（配合 ROADMAP_DAILY）
+## 11. 本轮 Git 计划（配合 ROADMAP_DAILY v4）
 
-| 日期 | 分支 | 预计提交数 |
-|---|---|---|
-| 11/10 | `chore/bootstrap`、`feature/llm-baseline` | 4 |
-| 11/11 | `feature/hybrid-retrieval` | 5 |
-| 11/12 | `feature/eval-60-cases` | 5 |
-| 11/13 | `feature/mcp-server` | 4 |
-| 11/14 | `feature/parallel-fanout` | 4 |
-| 11/15 | `release/v0.1.0` | 3 |
+| 日期 | 分支 | 主题 | 预计提交 |
+|---|---|---|---|
+| 11/11 | `feature/real-baseline` | 真实基线 + 失败归因 | 4 |
+| 11/12 | `feature/hybrid-retrieval` | 混合检索 + 实验 A | 5 |
+| 11/13 | `feature/eval-objectivity` | 结构化判分 + LLM-as-judge + 60 条 | 5 |
+| 11/14 | `feature/mcp-server` | MCP + 工具路由 | 4 |
+| 11/15 | `feature/parallel-fanout` | fan-out + 实验 D | 4 |
+| 11/16 | `feature/fastapi-sse` | FastAPI + SSE 服务化 | 4 |
+| 11/17 | `feature/gateway-hardening` | 限流/会话/审计/可观测 | 4 |
+| 11/18 | `feature/scenario-b` | 场景 B + 评测扩到 120 | 5 |
+| 11/19 | `feature/experiments-bc` | 实验 B/C + 汇总 | 4 |
+| 11/20 | `release/v0.2.0` | 收口 + tag | 3 |
+| 11/21–22 | `docs/interview-drill` | 追问演练 + 补漏 | 3 |
 
-累计 ≈ 25 次提交，5 个 PR，1 个 tag。
+累计 ≈ 45 次提交、10 个 PR、2 个 tag。**每天至少 3 次提交**，这是面试官能看到的"持续投入"证据。

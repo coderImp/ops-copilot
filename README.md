@@ -50,16 +50,19 @@ docs/           开发文档 / 每日任务 / Git 规范
 ## 当前状态
 
 - [x] Agent 主循环 + 三层终止
-- [x] 工具注册表 + schema 校验 + 超时 + 重试
+- [x] 工具注册表 + 真实 JSON Schema + 超时 + 重试 + 写操作确认令牌
 - [x] 上下文预算 + 摘要 + 结构化记忆
-- [x] 指标/日志/runbook 三工具
+- [x] 指标/日志/runbook 三工具（指标支持涨/跌双向异常判定）
 - [x] 故障模拟靶场（6 种故障）
-- [x] 24 条评测集 + 评测脚本
-- [ ] 接入真实 LLM 并产出可引用指标
-- [ ] 混合检索（BM25 + 向量 + RRF）
-- [ ] 并行 fan-out 多 Agent
-- [ ] MCP Server
-- [ ] Spring Boot 网关 + SSE
+- [x] 24 条评测集 + 评测脚本（固定种子，可复现）
+- [ ] 真实模型全量基线（D1）
+- [ ] 评测客观性升级：结构化字段比对 + LLM-as-judge（D3）
+- [ ] 混合检索（BM25 + 向量 + RRF）（D2）
+- [ ] MCP Server（D4）
+- [ ] 并行 fan-out 多 Agent（D5）
+- [ ] FastAPI + SSE 服务化（D6）
+- [ ] 场景 B：同一 runtime 换工具集（D8）
+- [ ] 评测集扩到 120 条（D8）
 
 详见 [docs/ROADMAP_DAILY.md](docs/ROADMAP_DAILY.md)。
 
