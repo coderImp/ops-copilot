@@ -4,6 +4,13 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+.coverage
+htmlcov/
 
 # ---- 运行时产物（本地生成，不入库）----
 /data/
