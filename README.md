@@ -49,31 +49,39 @@ docs/           开发文档 / 每日任务 / Git 规范
 
 ## 当前状态
 
+**已完成**
+
 - [x] Agent 主循环 + 三层终止
 - [x] 工具注册表 + 真实 JSON Schema + 超时 + 重试 + 写操作确认令牌
 - [x] 上下文预算 + 摘要 + 结构化记忆
 - [x] 指标/日志/runbook 三工具（指标支持涨/跌双向异常判定）
 - [x] 故障模拟靶场（6 种故障）
 - [x] 24 条评测集 + 评测脚本（固定种子，可复现）
-- [ ] 真实模型全量基线（D1）
-- [ ] 评测客观性升级：结构化字段比对 + LLM-as-judge（D3）
-- [ ] 混合检索（BM25 + 向量 + RRF）（D2）
-- [ ] MCP Server（D4）
-- [ ] 并行 fan-out 多 Agent（D5）
-- [ ] FastAPI + SSE 服务化（D6）
-- [ ] 场景 B：同一 runtime 换工具集（D8）
-- [ ] 评测集扩到 120 条（D8）
+- [x] **D1 真实模型基线**：任务组 18/18、拒答组 6/6（n=3 取中位数，p95 ≈ 7–14s）
+- [x] D1 失败归因 + 轨迹归档（见 `docs/FAILURE_ANALYSIS.md`）
+
+**待办**
+
+- [ ] D2 混合检索（中文 bigram + BM25 + RRF）+ 检索级评测
+- [ ] D3 评测客观性：结构化字段比对 + LLM-as-judge
+- [ ] D4 MCP Server
+- [ ] D5 并行 fan-out 多 Agent
+- [ ] D6 FastAPI + SSE 服务化
+- [ ] D7 限流 / 会话隔离 / 审计 / 可观测
+- [ ] D8 场景 B + 评测集扩到 120 条
+- [ ] D9 实验 B/C + 汇总
+- [ ] D10 收口 + tag v0.2.0
 
 详见 [docs/ROADMAP_DAILY.md](docs/ROADMAP_DAILY.md)。
 
 ## 开发
 
-```bash
-pip install -e ".[dev]"
-pytest          # 跑单测
-ruff check .    # 跑 lint
+本机 `python` 指向 Microsoft Store 占位符（启动会弹商店），请统一用项目内 venv：
+
+```powershell
+scripts\setup.cmd          # 一次性：uv sync --extra dev
+scripts\check.cmd          # 推代码前：lint + 单测 + 冒烟评测
+.venv\Scripts\python.exe -m eval.run_eval --planner llm   # 跑真实模型评测
 ```
 
 贡献与分支规范见 [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)。
-
-<!-- first push test -->
