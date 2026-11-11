@@ -21,10 +21,11 @@ import statistics
 import sys
 import tempfile
 import time
+from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agent.core.llm import OraclePlanner  # noqa: E402
+from agent.core.llm import OpenAICompatLLM, OraclePlanner  # noqa: E402
 from agent.core.loop import run  # noqa: E402
 from agent.tools import build_registry  # noqa: E402
 from sim.target import inject  # noqa: E402
@@ -42,23 +43,22 @@ def load_scenarios(only: str | None = None) -> list[dict]:
     return data
 
 
-def evaluate_one(sc: dict) -> dict:
+def evaluate_one(sc: dict, planner: Any) -> dict:
     """每个场景用独立临时目录注入故障，跑完立即清理，避免在仓库留下残留目录。"""
     tmp = tempfile.mkdtemp(prefix="opscop-")
     try:
-        return _evaluate(sc, tmp)
+        return _evaluate(sc, tmp, planner)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def _evaluate(sc: dict, tmp: str) -> dict:
+def _evaluate(sc: dict, tmp: str, planner: Any) -> dict:
     # 固定种子：必须可复现（不能用 hash(str)，Python 字符串 hash 每进程带随机盐）
     seed = int("".join(ch for ch in sc["id"] if ch.isdigit()) or 0)
     inject(sc["fault"], out_dir=tmp, minutes=15, seed=seed, clean=True)
     os.environ["OPS_DATA_DIR"] = tmp
 
     registry = build_registry()
-    planner = OraclePlanner()
 
     started = time.time()
     traj = run(sc["task"], registry, planner, max_steps=sc.get("max_steps", 6))
@@ -151,8 +151,17 @@ def main() -> None:
         print("=" * 72 + "\n")
 
     scenarios = load_scenarios(args.only)
+
+    # 真正决定用哪个 planner（此前这里硬编码 Oracle，导致 --planner llm 名不副实）
+    if args.planner == "llm":
+        planner: Any = OpenAICompatLLM(model=os.getenv("LLM_MODEL", "deepseek-chat"))
+        print(f"planner = {type(planner).__name__}({planner.model}) @ {planner.base_url}\n")
+    else:
+        planner = OraclePlanner()
+        print(f"planner = {type(planner).__name__}\n")
+
     print(f"running {len(scenarios)} scenarios ...\n")
-    results = [evaluate_one(sc) for sc in scenarios]
+    results = [evaluate_one(sc, planner) for sc in scenarios]
     summary = summarize(results)
 
     if args.trace:
@@ -167,14 +176,16 @@ def main() -> None:
         print(f"  {k:24s} {'N/A' if v is None else v}")
 
     with open(args.out, "w", encoding="utf-8") as f:
-        model = os.getenv("LLM_MODEL", "deepseek-chat") if args.planner == "llm" else "n/a"
+        # 记录"实际用的 planner"，而不是命令行参数 —— 避免再次出现"标签说 llm、实际跑 oracle"
+        actual = type(planner).__name__
+        model = getattr(planner, "model", "n/a")
         subset = args.only or "all"
         fp = hashlib.sha1(open(SCENARIOS, "rb").read()).hexdigest()[:8]
         f.write("# Agent 离线评测报告\n\n")
         f.write(f"> 生成时间：{time.strftime('%Y-%m-%d %H:%M:%S')}｜场景数：{summary['n']}"
-                f"｜子集：**{subset}**｜规划器：**{args.planner}**（model: {model}）"
+                f"｜子集：**{subset}**｜实际规划器：**{actual}**（model: {model}）"
                 f"｜场景集指纹：`{fp}`\n\n")
-        if args.planner == "oracle":
+        if actual == "OraclePlanner":
             f.write("> ⚠️ **本报告由 OraclePlanner（启发式基线）生成**，用于验证靶场与评测链路，"
                     "不代表模型能力。对外引用/写简历前必须用真实模型重跑"
                     "（`python -m eval.run_eval --planner llm`）。\n\n")
