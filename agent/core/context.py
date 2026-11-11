@@ -66,7 +66,9 @@ class ContextManager:
         self._compress_if_needed()
         out = list(self.messages)
         if self.memory:
-            out.append({"role": "system",
+            # 注意：不能作为 system 追加在末尾 —— 多数 OpenAI 兼容接口要求
+            # system 只能在首条，否则返回 422。这里降级为 user 观测消息。
+            out.append({"role": "user",
                         "content": "[已确认的实体记忆，可直接引用] " +
                                    json.dumps(self.memory, ensure_ascii=False)})
         return out

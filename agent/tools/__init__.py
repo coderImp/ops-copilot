@@ -19,7 +19,11 @@ def build_registry() -> ToolRegistry:
             params={
                 "service": {"type": "string", "required": True,
                             "enum": ["gateway", "order-service", "user-service"]},
-                "metric": {"type": "string", "required": False},
+                "metric": {"type": "string", "required": False, "enum": [
+                    "all", "error_rate", "p99_latency_ms", "http_5xx_rate",
+                    "pool_active", "redis_hit_rate", "gc_pause_ms",
+                    "db_slow_query_count", "qps",
+                ]},
                 "window_minutes": {"type": "integer", "required": False},
             },
             timeout_s=10,
